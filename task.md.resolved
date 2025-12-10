@@ -1,0 +1,84 @@
+# StudySensei 2.0 Implementation Checklist
+
+## Phase 1: Infrastructure & Dockerization
+- [ ] **Restructure Project Folders**
+    - [ ] Create `worker/` directory.
+    - [ ] Create `code_runner/` directory.
+    - [ ] Ensure `frontend` and `backend` exist and are organized.
+- [ ] **Docker Setup**
+    - [ ] Create `backend/Dockerfile`.
+    - [ ] Create `frontend/Dockerfile`.
+    - [ ] Create `worker/Dockerfile` (or setup based on python base).
+    - [ ] Create `docker-compose.yml` at project root defining services: `db`, `backend`, `frontend`, `worker`.
+- [ ] **Verification**
+    - [ ] Verify `docker-compose up --build` works and services communicate.
+
+## Phase 2: Background Worker (Async Document Processing)
+- [ ] **Database Schema Updates**
+    - [ ] Alter `documents` table: add `status` (text) and `error_message` (text).
+- [ ] **Backend Upload Refactor**
+    - [ ] Modify `POST /documents/upload`:
+        - [ ] Remove inline processing (chunking/embedding).
+        - [ ] Upload to Supabase Storage.
+        - [ ] Insert record with `status='pending'`.
+- [ ] **Worker Service Implementation**
+    - [ ] Create `worker/requirements.txt`.
+    - [ ] Implement `worker/worker_main.py`:
+        - [ ] DB connection (psycopg2).
+        - [ ] Loop to fetch `pending` documents.
+        - [ ] Implement processing logic: Download -> Extract Text (pypdf) -> Chunk -> Embed (SentenceTransformer) -> Insert `document_chunks`.
+        - [ ] Update status to `ready` or `failed`.
+- [ ] **Frontend Updates**
+    - [ ] Update document list to poll status.
+    - [ ] Show status badges (Pending, Processing, Ready, Failed).
+
+## Phase 3: Problem-Solving Engine (Code Execution)
+- [ ] **Database Schema Updates**
+    - [ ] Create table `coding_questions`.
+    - [ ] Create table `test_cases`.
+    - [ ] Create table `code_submissions`.
+- [ ] **Code Runner Service**
+    - [ ] Create `code_runner/Dockerfile` (safe python env).
+    - [ ] Create `code_runner/run_code.py` (subprocess wrapper).
+- [ ] **Backend Implementation**
+    - [ ] Implement `POST /solver/generate-question`:
+        - [ ] RAG fetch context.
+        - [ ] LLM prompt to generate question + test cases JSON.
+        - [ ] Save to DB.
+    - [ ] Implement `POST /solver/submit`:
+        - [ ] Retrieve test cases.
+        - [ ] Execute user code via `code_runner` container (or careful subprocess if Docker-in-Docker is complex for env).
+        - [ ] Compare outputs and return results.
+- [ ] **Frontend Implementation**
+    - [ ] Create Code Editor UI (Monaco Editor or simple textarea).
+    - [ ] Display problem description.
+    - [ ] "Run Code" button and result display.
+
+## Phase 4: Multi-Agent Mentor System
+- [ ] **Backend Implementation**
+    - [ ] Create `POST /mentor/message` orchestrator.
+    - [ ] Implement Agents/Modes:
+        - [ ] `Explain` (Teacher): RAG + explanation prompt.
+        - [ ] `Quiz` (Examiner): Generate MCQs prompt.
+        - [ ] `Plan` (Planner): Generate study schedule prompt.
+        - [ ] `Coach` (Motivator): Motivational prompt (no RAG needed).
+- [ ] **Frontend Implementation**
+    - [ ] Add Mode Selector (Explain, Quiz, Plan, Coach) to Chat Interface.
+    - [ ] Update UI to handle specific response types (e.g., render JSON quizzes as interactive MCQs, format markdown plans).
+
+## Phase 5: Analytics & Progress Tracking
+- [ ] **Database Schema Updates**
+    - [ ] Create `progress_metrics` table.
+- [ ] **Backend Implementation**
+    - [ ] Logic to update `progress_metrics` on quiz completion.
+    - [ ] Implement `GET /analytics/skill/{skill_id}` endpoint.
+- [ ] **Frontend Implementation**
+    - [ ] Install `recharts`.
+    - [ ] Build Analytics Dashboard component (Bar charts for topic accuracy).
+
+## Phase 6: Polish & Security
+- [ ] **Security Review**
+    - [ ] Ensure all endpoints validate User ID (Row Level Security or app logic).
+    - [ ] Verify sensitive env vars (API Keys) are not logged.
+- [ ] **Final Testing**
+    - [ ] End-to-end flow test: Upload -> Worker Process -> Chat -> Quiz -> Analytics.

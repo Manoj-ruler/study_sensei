@@ -1,0 +1,52 @@
+# Render Blueprint for StudySensei
+# This file allows you to deploy all services with one click
+
+services:
+  # Main Backend API
+  - type: web
+    name: studysensei-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    rootDir: backend
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SUPABASE_URL
+        sync: false  # You'll add this manually in Render dashboard
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+    plan: free
+
+  # Code Runner Service
+  - type: web
+    name: studysensei-code-runner
+    runtime: python
+    buildCommand: pip install fastapi uvicorn pydantic
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    rootDir: code_runner
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    plan: free
+
+  # Background Worker (Optional - see deployment guide)
+  # Uncomment if you want to deploy the worker
+  # - type: web
+  #   name: studysensei-worker
+  #   runtime: python
+  #   buildCommand: pip install -r requirements.txt
+  #   startCommand: python worker_main.py
+  #   rootDir: worker
+  #   envVars:
+  #     - key: PYTHON_VERSION
+  #       value: 3.11.0
+  #     - key: SUPABASE_URL
+  #       sync: false
+  #     - key: SUPABASE_SERVICE_ROLE_KEY
+  #       sync: false
+  #   plan: free

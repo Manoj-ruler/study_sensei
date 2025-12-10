@@ -1,0 +1,160 @@
+# StudySensei Implementation Plan
+
+**Goal:** Build a production-ready "StudySensei" AI Cognitive Skill Growth Platform in 3-4 days.
+**Tech Stack:** Next.js 14 (TypeScript), FastAPI, Supabase (PostgreSQL + pgvector + Auth), Docker, Ollama (Local LLM).
+
+## 📅 Day-by-Day Execution Plan
+
+*   **Day 1: Foundation & Data Layer** - Database Schema, Supabase Setup, Vector Store, Basic FastAPI Setup.
+*   **Day 2: Backend Logic & AI Core** - RAG Pipeline, Document Processing, Embeddings, Chat Endpoints.
+*   **Day 3: Frontend & UI** - Next.js Setup, Auth UI, Dashboard, Chat Interface, Upload Flow.
+*   **Day 4: Advanced Features & Polish** - Quiz Engine, Multi-Agent Logic, Docker Compose, Final Testing.
+
+---
+
+## 1. Database Schema (Supabase PostgreSQL)
+
+We will use Supabase for Auth and Database. We need to enable the `vector` extension.
+
+### Extensions
+```sql
+create extension if not exists vector;
+```
+
+### Tables
+
+#### `users` (Managed by Supabase Auth, but we add a profile table)
+*   `id` (UUID, PK, references auth.users)
+*   `full_name` (Text)
+*   `avatar_url` (Text)
+*   `created_at` (Timestamp)
+
+#### `skills` (Learning Paths)
+*   `id` (UUID, PK)
+*   `user_id` (UUID, FK -> users.id)
+*   `title` (Text) - e.g., "Python Mastery"
+*   `description` (Text)
+*   `created_at` (Timestamp)
+
+#### `documents` (Uploaded Resources)
+*   `id` (UUID, PK)
+*   `user_id` (UUID, FK -> users.id)
+*   `skill_id` (UUID, FK -> skills.id, Optional)
+*   `filename` (Text)
+*   `file_url` (Text) - Supabase Storage URL
+*   `processed` (Boolean) - True if chunks generated
+*   `created_at` (Timestamp)
+
+#### `document_chunks` (For RAG)
+*   `id` (UUID, PK)
+*   `document_id` (UUID, FK -> documents.id)
+*   `content` (Text) - The actual text chunk
+*   `embedding` (vector(384)) - For MiniLM-L6-v2 (384 dimensions)
+*   `chunk_index` (Integer)
+
+#### `chats` (Conversation History)
+*   `id` (UUID, PK)
+*   `user_id` (UUID, FK -> users.id)
+*   `skill_id` (UUID, FK -> skills.id)
+*   `title` (Text)
+*   `created_at` (Timestamp)
+
+#### `messages` (Chat Messages)
+*   `id` (UUID, PK)
+*   `chat_id` (UUID, FK -> chats.id)
+*   `role` (Text) - 'user' or 'assistant'
+*   `content` (Text)
+*   `created_at` (Timestamp)
+
+#### `quizzes`
+*   `id` (UUID, PK)
+*   `skill_id` (UUID, FK -> skills.id)
+*   `score` (Integer)
+*   `total_questions` (Integer)
+*   `created_at` (Timestamp)
+
+---
+
+## 2. Backend API Specification (FastAPI)
+
+**Base URL:** `http://localhost:8000`
+**Auth:** Bearer Token (Supabase JWT) validated via Middleware.
+
+### 📂 Document Management
+*   **POST** `/documents/upload`
+    *   **Input:** `file` (UploadFile), `skill_id` (str)
+    *   **Logic:** Save to Supabase Storage -> Extract Text -> Split to Chunks -> Generate Embeddings -> Store in `document_chunks`.
+    *   **Response:** `{ "status": "success", "document_id": "..." }`
+
+### 🧠 RAG & Chat
+*   **POST** `/chat/message`
+    *   **Input:** `{ "chat_id": "...", "message": "..." }`
+    *   **Logic:**
+        1.  Embed `message`.
+        2.  Query `document_chunks` using cosine similarity (pgvector).
+        3.  Construct Prompt: "Context: [Chunks] User: [Message]".
+        4.  Call LLM (Ollama).
+        5.  Save User & AI message to DB.
+    *   **Response:** `{ "response": "AI answer...", "sources": [...] }`
+
+### 📝 Quiz Engine
+*   **POST** `/quiz/generate`
+    *   **Input:** `{ "skill_id": "...", "topic": "..." }`
+    *   **Logic:** Retrieve relevant chunks -> Prompt LLM to generate 5 MCQs -> Return JSON.
+    *   **Response:** JSON List of Questions.
+
+### 🐍 Code Solver (Simplified for MVP)
+*   **POST** `/solver/execute`
+    *   **Input:** `{ "code": "...", "language": "python" }`
+    *   **Logic:** Run code in a temporary Docker container or restricted subprocess.
+    *   **Response:** `{ "output": "...", "error": "..." }`
+
+---
+
+## 3. Frontend Architecture (Next.js 14 + TypeScript)
+
+**Styling:** TailwindCSS + Lucide Icons.
+**State Management:** React Query (TanStack Query) for API calls.
+
+### Pages & Routes
+*   `/` - Landing Page (Hero section, Features).
+*   `/login` - Supabase Auth Login.
+*   `/dashboard` - List of Skills, Recent Activity.
+*   `/skills/[id]` - Skill details, document list, start quiz button.
+*   `/chat/[id]` - Chat interface with specific skill context.
+*   `/quiz/[id]` - Active quiz interface.
+
+### Key Components
+*   `FileUpload` - Drag & drop zone.
+*   `ChatWindow` - Message list, input, markdown rendering.
+*   `QuizCard` - Interactive question card.
+*   `CodeEditor` - Monaco Editor for coding tasks.
+
+---
+
+## 4. AI & Multi-Agent Logic
+
+We will use a simplified Agent pattern for the MVP:
+
+1.  **Router Agent:** Decides if the user query is a general question, a request for a quiz, or a coding problem.
+2.  **Retrieval Agent (Teacher):** Handles RAG (Search -> Synthesize).
+3.  **Solver Agent:** Handles code execution requests.
+
+**Model:** `mistral` or `llama2` running on Ollama locally.
+
+---
+
+## 5. Infrastructure (Docker)
+
+`docker-compose.yml`:
+1.  **Backend:** FastAPI (Port 8000)
+2.  **Frontend:** Next.js (Port 3000)
+3.  **Ollama:** AI Model Service (Port 11434)
+4.  **Supabase:** (Managed Cloud or Local Docker - we will assume Managed Cloud for speed, or Local if requested). *Recommendation: Use Managed Supabase Free Tier to save setup time.*
+
+---
+
+## Next Steps
+
+1.  **Approve this plan.**
+2.  **Start Phase 1:** I will generate the SQL for Supabase and set up the project structure.

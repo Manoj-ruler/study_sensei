@@ -1,0 +1,8 @@
+psycopg2-binary
+pypdf
+sentence-transformers
+requests
+python-dotenv
+supabase
+langchain
+langchain-text-splitters
