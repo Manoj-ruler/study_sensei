@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pydantic
+supabase
+python-multipart
+python-dotenv
+langchain
+langchain-community
+sentence-transformers
+chromadb
+httpx
+pypdf
+langchain-google-genai==2.0.1
+svgwrite
